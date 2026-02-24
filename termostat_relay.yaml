@@ -1,6 +1,6 @@
 blueprint:
-  name: Thermostat temperature comparison → Relay (stable)
-  description: Relay control based on temperature difference
+  name: Thermostat temperature comparison → Relay (final stable)
+  description: Controls relay based on thermostat temperature and hvac mode
   domain: automation
 
   input:
@@ -31,34 +31,45 @@ trigger:
     entity_id: !input thermostat
 
   - platform: time_pattern
-    minutes: "/2"   # Проверка каждые 2 минуты (надёжность)
+    minutes: "/2"
 
 variables:
   thermostat_entity: !input thermostat
   relay_entity: !input relay
   hyst: !input hysteresis
+  hvac_mode: "{{ states(thermostat_entity) }}"
   current_temp: "{{ state_attr(thermostat_entity, 'current_temperature') | float(0) }}"
   target_temp: "{{ state_attr(thermostat_entity, 'temperature') | float(0) }}"
-
-condition:
-  - condition: template
-    value_template: >
-      {{ current_temp != 0 and target_temp != 0 }}
 
 action:
   - choose:
 
+      # 🔴 Если термостат выключен — выключаем реле всегда
       - conditions:
           - condition: template
-            value_template: "{{ current_temp < (target_temp - hyst) }}"
+            value_template: "{{ hvac_mode == 'off' }}"
+        sequence:
+          - service: switch.turn_off
+            target:
+              entity_id: "{{ relay_entity }}"
+
+      # 🟢 Если режим heat и нужно греть
+      - conditions:
+          - condition: template
+            value_template: >
+              {{ hvac_mode == 'heat' and
+                 current_temp < (target_temp - hyst) }}
         sequence:
           - service: switch.turn_on
             target:
               entity_id: "{{ relay_entity }}"
 
+      # 🟡 Если достигли температуры — выключаем
       - conditions:
           - condition: template
-            value_template: "{{ current_temp >= target_temp }}"
+            value_template: >
+              {{ hvac_mode == 'heat' and
+                 current_temp >= target_temp }}
         sequence:
           - service: switch.turn_off
             target:
