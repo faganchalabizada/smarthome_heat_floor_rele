@@ -1,0 +1,41 @@
+blueprint:
+  name: Thermostat controls relay
+  description: Turns a relay on when thermostat is heating and off when idle.
+  domain: automation
+  input:
+    thermostat:
+      name: Thermostat
+      selector:
+        entity:
+          domain: climate
+    relay:
+      name: Relay switch
+      selector:
+        entity:
+          domain: switch
+
+trigger:
+  - platform: state
+    entity_id: !input thermostat
+    attribute: hvac_action
+
+action:
+  - choose:
+      - conditions:
+          - condition: template
+            value_template: >
+              {{ state_attr(thermostat, 'hvac_action') == 'heating' }}
+        sequence:
+          - service: switch.turn_on
+            target:
+              entity_id: !input relay
+      - conditions:
+          - condition: template
+            value_template: >
+              {{ state_attr(thermostat, 'hvac_action') != 'heating' }}
+        sequence:
+          - service: switch.turn_off
+            target:
+              entity_id: !input relay
+
+mode: restart
