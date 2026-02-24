@@ -1,5 +1,5 @@
 blueprint:
-  name: Thermostat temperature comparison → Relay (stable2)
+  name: Thermostat temperature comparison → Relay (stable)
   description: Relay control based on temperature difference
   domain: automation
 
