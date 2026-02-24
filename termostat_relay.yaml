@@ -1,18 +1,21 @@
 blueprint:
-  name: Thermostat temperature comparison → Relay (fixed)
-  description: Turns relay on when current temperature is below target temperature.
+  name: Thermostat temperature comparison → Relay (stable2)
+  description: Relay control based on temperature difference
   domain: automation
+
   input:
     thermostat:
       name: Thermostat
       selector:
         entity:
           domain: climate
+
     relay:
       name: Relay switch
       selector:
         entity:
           domain: switch
+
     hysteresis:
       name: Hysteresis
       default: 0.3
@@ -26,10 +29,9 @@ blueprint:
 trigger:
   - platform: state
     entity_id: !input thermostat
-    attribute: current_temperature
-  - platform: state
-    entity_id: !input thermostat
-    attribute: temperature
+
+  - platform: time_pattern
+    minutes: "/2"   # Проверка каждые 2 минуты (надёжность)
 
 variables:
   thermostat_entity: !input thermostat
@@ -38,8 +40,14 @@ variables:
   current_temp: "{{ state_attr(thermostat_entity, 'current_temperature') | float(0) }}"
   target_temp: "{{ state_attr(thermostat_entity, 'temperature') | float(0) }}"
 
+condition:
+  - condition: template
+    value_template: >
+      {{ current_temp != 0 and target_temp != 0 }}
+
 action:
   - choose:
+
       - conditions:
           - condition: template
             value_template: "{{ current_temp < (target_temp - hyst) }}"
