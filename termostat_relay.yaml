@@ -1,6 +1,6 @@
 blueprint:
-  name: Thermostat controls relay
-  description: Turns a relay on when thermostat is heating and off when idle.
+  name: Thermostat temperature comparison → Relay
+  description: Turns relay on when current temperature is below target temperature.
   domain: automation
   input:
     thermostat:
@@ -13,26 +13,43 @@ blueprint:
       selector:
         entity:
           domain: switch
+    hysteresis:
+      name: Hysteresis (optional)
+      description: Temperature buffer to prevent relay flickering
+      default: 0.3
+      selector:
+        number:
+          min: 0
+          max: 2
+          step: 0.1
+          unit_of_measurement: "°C"
 
 trigger:
   - platform: state
     entity_id: !input thermostat
-    attribute: hvac_action
+    attribute: current_temperature
+  - platform: state
+    entity_id: !input thermostat
+    attribute: temperature
+
+variables:
+  current_temp: "{{ state_attr(thermostat, 'current_temperature') | float(0) }}"
+  target_temp: "{{ state_attr(thermostat, 'temperature') | float(0) }}"
+  hyst: !input hysteresis
 
 action:
   - choose:
       - conditions:
           - condition: template
-            value_template: >
-              {{ state_attr(thermostat, 'hvac_action') == 'heating' }}
+            value_template: "{{ current_temp < (target_temp - hyst) }}"
         sequence:
           - service: switch.turn_on
             target:
               entity_id: !input relay
+
       - conditions:
           - condition: template
-            value_template: >
-              {{ state_attr(thermostat, 'hvac_action') != 'heating' }}
+            value_template: "{{ current_temp >= target_temp }}"
         sequence:
           - service: switch.turn_off
             target:
